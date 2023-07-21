@@ -178,12 +178,18 @@ func getHotel(c *gin.Context) {
 
 	// Aggregate Pipeline
 	pipeline := bson.A{
-		bson.D{{"$match", bson.D{
+		// Match stage
+		bson.D{{Key: "$match", Value: bson.D{
 			{Key: "city", Value: destination},
 			{Key: "date", Value: bson.D{{Key: "$gte", Value: checkInDate}, {Key: "$lte", Value: checkOutDate}}},
 		}}},
-		bson.D{{"$group", bson.D{{"_id", "$hotelName"}, {"price", bson.D{{"$sum", "$price"}}}}}},
-		bson.D{{"$sort", bson.D{{Key: "price", Value: 1}}}},
+		// Group stage
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$hotelName"}, 
+			{Key: "price", Value: bson.D{{Key: "$sum", Value: "$price"}}},
+		}}},
+		// Sort stage
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "price", Value: 1}}}},
 	}
 
 	cursor, err := coll.Aggregate(context.TODO(), pipeline)
