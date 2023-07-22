@@ -22,7 +22,7 @@ func main() {
 	router.GET("/flight", getFlight)
 	router.GET("/hotel", getHotel)
 
-	router.Run("localhost:8080")
+	router.Run(":8080")
 }
 
 func indexHandler(c *gin.Context) {
@@ -89,13 +89,23 @@ func getFlight(c *gin.Context) {
 	}
 
 	if len(depResults) == 0 {
-		c.IndentedJSON(http.StatusNotFound, gin.H{
-			"message": "No returning flights found",
-		})
+		fmt.Println("No departure flights found")
+		emptyResult := make([]gin.H, 0)
+		c.IndentedJSON(http.StatusOK, emptyResult)
 		return
 	}
 
-	depFlight := depResults[0]
+	mainDepFlight := depResults[0]
+
+	var depFlights []bson.M
+
+	for _, depFlight := range depResults {
+		if depFlight["price"] == mainDepFlight["price"] {
+			depFlights = append(depFlights, depFlight)	
+		} else {
+			break
+		}
+	}
 
 	// FINDING RETURN FLIGHTS
 
@@ -119,29 +129,46 @@ func getFlight(c *gin.Context) {
 	}
 
 	if len(retResults) == 0 {
-		c.IndentedJSON(http.StatusNotFound, gin.H{
-			"message": "No returning flights found",
-		})
+		fmt.Println("No return flights found")
+		emptyResult := make([]gin.H, 0)
+		c.IndentedJSON(http.StatusOK, emptyResult)
 		return
 	}
+	
+	mainRetFlight := retResults[0]
 
-	retFlight := retResults[0]
+	var retFlights []bson.M
 
-	response := gin.H{
-		"City":              destination,
-		"Departure Date":    departureDate,
-		"Departure Airline": depFlight["airlinename"],
-		"Departure Price":   depFlight["price"],
-		"Return Date":       returnDate,
-		"Return Airline":    retFlight["airlinename"],
-		"Return Price":      retFlight["price"],
+	for _, retFlight := range retResults {
+		if retFlight["price"] == mainRetFlight["price"] {
+			retFlights = append(retFlights, retFlight)	
+		} else {
+			break
+		}
+	}
+
+	var results []gin.H
+
+	for _, depFlight := range depFlights {
+		for _, retFlight := range retFlights {
+			result := gin.H{
+				"City":              destination,
+				"Departure Date":    departureDate,
+				"Departure Airline": depFlight["airlinename"],
+				"Departure Price":   depFlight["price"],
+				"Return Date":       returnDate,
+				"Return Airline":    retFlight["airlinename"],
+				"Return Price":      retFlight["price"],
+			}
+			results = append(results, result)
+		}
 	}
 
 	if err != nil {
 		panic(err)
 	}
 
-	c.IndentedJSON(http.StatusOK, response)
+	c.IndentedJSON(http.StatusOK, results)
 }
 
 func getHotel(c *gin.Context) {
@@ -204,21 +231,29 @@ func getHotel(c *gin.Context) {
 	}
 
 	if len(result) == 0 {
-		c.IndentedJSON(http.StatusNotFound, gin.H{
-			"message": "No hotels found",
-		})
+		emptyResult := make([]gin.H, 0)
+		c.IndentedJSON(http.StatusOK, emptyResult)
 		return
 	}
 
-	hotel := result[0]
+	bestHotel := result[0]
 
-	response := gin.H{
-		"City":           destination,
-		"Check In Date":  checkInDateString,
-		"Check Out Date": checkOutDateString,
-		"Hotel":          hotel["_id"],
-		"Price":          hotel["price"],
+	var results []gin.H
+
+	for _, hotel := range result {
+		if hotel["price"] == bestHotel["price"] {
+			response := gin.H{
+				"City":           destination,
+				"Check In Date":  checkInDateString,
+				"Check Out Date": checkOutDateString,
+				"Hotel":          hotel["_id"],
+				"Price":          hotel["price"],
+			}
+			results = append(results, response)
+		} else {
+			break
+		}
 	}
 
-	c.IndentedJSON(http.StatusOK, response)
+	c.IndentedJSON(http.StatusOK, results)
 }
